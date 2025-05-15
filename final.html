@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Form with Camera Capture</title>
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.3/dist/umd/popper.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@7.12.15/dist/sweetalert2.all.min.js"></script>
+    <style>
+        .form-container {
+            max-width: 500px;
+            margin: auto;
+            margin-top: 50px;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(49, 48, 48, 0.1);
+            background-color: #fff;
+        }
+        .camera-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        border: 2px solid #ccc;
+        padding: 15px;
+        border-radius: 10px;
+        background-color: #f8f9fa;
+    }
+
+    #video {
+        width: 100%;
+        max-width: 400px;
+        border-radius: 10px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    #capture, #start-camera {
+        margin-top: 10px;
+        width: 100%;
+    }
+
+    #image-preview {
+        display: none;
+        width: 100%;
+        max-width: 300px;
+        border: 2px solid #007bff;
+        border-radius: 8px;
+        margin-top: 15px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    #notification {
+        font-size: 18px;
+        font-weight: bold;
+        color: rgb(7, 131, 7);
+        margin-top: 10px;
+    }
+    </style>
+</head>
+<body class="bg-light">
+    <div class="container">
+        <div class="form-container">
+            <h4 class="text-center mb-4">Form Submission to Google Sheet</h4>
+            <form id="submit-to-google-sheet">
+                <div class="form-group">
+                    <label for="name">Name:</label>
+                    <input class="form-control" type="text" name="name" id="name" placeholder="Name" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="email">Email:</label>
+                    <input class="form-control" type="email" name="email" id="email" placeholder="Email" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="contact_number">Contact Number:</label>
+                    <input class="form-control" type="text" name="contact_number" id="contact_number" placeholder="Contact Number" required>
+                </div>
+
+                <!-- Camera Capture -->
+                <div class="camera-container">
+                    <button type="button" id="start-camera" class="btn btn-secondary">📷 Open Camera</button>
+                    <video id="video" autoplay style="display: none;"></video>
+                    <button type="button" id="capture" class="btn btn-success" style="display: none;">➡️ Capture Image</button>
+                    <canvas id="canvas" style="display: none;"></canvas>
+                    <input type="hidden" name="image" id="image-data">
+                    <p id="notification" style="display: none;">😊 Your picture was captured successfully!</p>
+                    <img id="image-preview" />
+                </div>
+                <!--another columns-->
+                <div class="form-group">
+                    <label for="gender">Gender:</label>
+                    <select class="form-control" name="gender" id="gender" required>
+                        <option value="" disabled selected hidden>Choose...</option>
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="message">Message:</label>
+                    <textarea class="form-control" name="message" id="message" placeholder="Message" required></textarea>
+                </div>
+
+                <div class="form-group form-check mt-2">
+                    <input class="form-check-input" type="checkbox" id="age">
+                    <label class="form-check-label" for="age">Check if you are over 18 years old</label>
+                </div>
+
+                <div class="form-group form-check">
+                    <input class="form-check-input" type="checkbox" id="ex" required>
+                    <label class="form-check-label" for="ex">By checking this box I certify that I agree with the data terms and policies.</label>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-block">Submit</button>
+
+                <!-- Loading Screen -->
+                <div id="loading" style="display: none; text-align: center; margin-top: 10px;">
+                    <span class="spinner-border text-primary" role="status"></span>
+                    <p>Loading... Please wait</p>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const scriptURL = "https://script.google.com/macros/s/AKfycby92819gSKWbGmmyK1b1XajqJsW86Yd2Hs4wQ8Qc0fSF_feCw5f2OFH6mQHRwGLgUJNDg/exec"; 
+        const form = document.forms["submit-to-google-sheet"];
+        const startCamera = document.getElementById("start-camera");
+    const video = document.getElementById("video");
+    const capture = document.getElementById("capture");
+    const canvas = document.getElementById("canvas");
+    const imageDataInput = document.getElementById("image-data");
+    const notification = document.getElementById("notification");
+    const imagePreview = document.getElementById("image-preview");
+
+    startCamera.addEventListener("click", () => {
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then((stream) => {
+                video.srcObject = stream;
+                video.style.display = "block";
+                capture.style.display = "block";
+            })
+            .catch((err) => console.error("Camera access error:", err));
+    });
+
+    capture.addEventListener("click", () => {
+        const context = canvas.getContext("2d");
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        // Convert image to Base64
+        const imageBase64 = canvas.toDataURL("image/png");
+        imageDataInput.value = imageBase64;
+
+        // Display notification
+        notification.style.display = "block";
+
+        // Show preview below the camera
+        imagePreview.src = imageBase64;
+        imagePreview.style.display = "block";
+
+        // Stop camera after capture
+        video.srcObject.getTracks().forEach(track => track.stop());
+        video.style.display = "none";
+        capture.style.display = "none";
+    });
+
+        form.addEventListener("submit", (e) => {
+            e.preventDefault();
+            document.getElementById("loading").style.display = "block";
+
+            var formData = new FormData(form);
+            var age = document.getElementById("age").checked;
+            var ex = document.getElementById("ex").checked;
+
+            formData.append("age", age ? "Yes" : "No");
+            formData.append("ex", ex ? "Yes" : "No");
+
+            fetch(scriptURL, { method: "POST", body: formData })
+                .then((response) => response.json())
+                .then((data) => {
+                    document.getElementById("loading").style.display = "none";
+                    if (data.result === "success") {
+                        swal("Done", "Submitted Successfully!", "success");
+                    } else {
+                        swal("Error", "Submission failed!", "error");
+                    }
+                })
+                .catch((error) => {
+                    document.getElementById("loading").style.display = "none";
+                    swal("Error", "Something went wrong. Please try again!", "error");
+                });
+        });
+    </script>
+</body>
+</html>
